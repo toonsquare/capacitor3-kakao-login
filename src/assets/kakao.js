@@ -1,5 +1,5 @@
 /**
- * Kakao SDK for JavaScript - v1.40.6
+ * Kakao SDK for JavaScript - v1.40.15
  *
  * Copyright 2017 Kakao Corp.
  *
@@ -915,6 +915,44 @@
     }
   }();
 
+  function ownKeys(object, enumerableOnly) {
+    var keys = Object.keys(object);
+
+    if (Object.getOwnPropertySymbols) {
+      var symbols = Object.getOwnPropertySymbols(object);
+
+      if (enumerableOnly) {
+        symbols = symbols.filter(function (sym) {
+          return Object.getOwnPropertyDescriptor(object, sym).enumerable;
+        });
+      }
+
+      keys.push.apply(keys, symbols);
+    }
+
+    return keys;
+  }
+
+  function _objectSpread2(target) {
+    for (var i = 1; i < arguments.length; i++) {
+      var source = arguments[i] != null ? arguments[i] : {};
+
+      if (i % 2) {
+        ownKeys(Object(source), true).forEach(function (key) {
+          _defineProperty(target, key, source[key]);
+        });
+      } else if (Object.getOwnPropertyDescriptors) {
+        Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
+      } else {
+        ownKeys(Object(source)).forEach(function (key) {
+          Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+        });
+      }
+    }
+
+    return target;
+  }
+
   function _typeof(obj) {
     "@babel/helpers - typeof";
 
@@ -966,40 +1004,6 @@
     }
 
     return obj;
-  }
-
-  function ownKeys(object, enumerableOnly) {
-    var keys = Object.keys(object);
-
-    if (Object.getOwnPropertySymbols) {
-      var symbols = Object.getOwnPropertySymbols(object);
-      if (enumerableOnly) symbols = symbols.filter(function (sym) {
-        return Object.getOwnPropertyDescriptor(object, sym).enumerable;
-      });
-      keys.push.apply(keys, symbols);
-    }
-
-    return keys;
-  }
-
-  function _objectSpread2(target) {
-    for (var i = 1; i < arguments.length; i++) {
-      var source = arguments[i] != null ? arguments[i] : {};
-
-      if (i % 2) {
-        ownKeys(Object(source), true).forEach(function (key) {
-          _defineProperty(target, key, source[key]);
-        });
-      } else if (Object.getOwnPropertyDescriptors) {
-        Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
-      } else {
-        ownKeys(Object(source)).forEach(function (key) {
-          Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
-        });
-      }
-    }
-
-    return target;
   }
 
   function _inherits(subClass, superClass) {
@@ -1098,18 +1102,21 @@
   }
 
   function _iterableToArray(iter) {
-    if (typeof Symbol !== "undefined" && Symbol.iterator in Object(iter)) return Array.from(iter);
+    if (typeof Symbol !== "undefined" && iter[Symbol.iterator] != null || iter["@@iterator"] != null) return Array.from(iter);
   }
 
   function _iterableToArrayLimit(arr, i) {
-    if (typeof Symbol === "undefined" || !(Symbol.iterator in Object(arr))) return;
+    var _i = arr == null ? null : typeof Symbol !== "undefined" && arr[Symbol.iterator] || arr["@@iterator"];
+
+    if (_i == null) return;
     var _arr = [];
     var _n = true;
     var _d = false;
-    var _e = undefined;
+
+    var _s, _e;
 
     try {
-      for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) {
+      for (_i = _i.call(arr); !(_n = (_s = _i.next()).done); _n = true) {
         _arr.push(_s.value);
 
         if (i && _arr.length === i) break;
@@ -1307,10 +1314,12 @@
     return UA$1;
   }
 
+  var ACCOUNT = "https://accounts.kakao.com";
   var AUTH = "https://kauth.kakao.com";
   var API$1 = "https://kapi.kakao.com";
   var SHARER_DOMAIN = "https://sharer.kakao.com";
   var PICKER_DOMAIN = "https://friend-picker.kakao.com";
+  var APPS_DOMAIN = "https://apps.kakao.com";
   var CHANNEL = "https://pf.kakao.com";
   var STORY = "https://story.kakao.com";
   var STORY_POST_SCHEME = "storylink://posting";
@@ -1326,12 +1335,14 @@
   var NAVI_WEB_URL = "https://kakaonavi-wguide.kakao.com/openapi";
   var DEVELOPERS = "https://developers.kakao.com";
 
-  var navigator$1 = getNavigator();
   var origin = getOrigin();
   var UA = getUA();
-  var VERSION = "1.40.6".concat('');
+  var isTalkWebview = /KAKAOTALK/i.test(UA.ua);
+  var VERSION = "1.40.15".concat('');
+  var navigator$1 = getNavigator();
   var KAKAO_AGENT = ["sdk/".concat(VERSION), 'os/javascript', 'sdk_type/javascript', "lang/".concat(navigator$1.userLanguage || navigator$1.language), "device/".concat(navigator$1.platform.replace(/ /g, '_')), "origin/".concat(encodeURIComponent(origin))].join(' ');
   var URL = {
+    accountDomain: ACCOUNT,
     authDomain: AUTH,
     authorize: "".concat(AUTH, "/oauth/authorize"),
     loginWidget: "".concat(AUTH, "/public/widget/login/kakaoLoginWidget.html"),
@@ -1344,6 +1355,7 @@
     apiRemote: "".concat(API$1, "/cors/"),
     sharerDomain: SHARER_DOMAIN,
     pickerDomain: PICKER_DOMAIN,
+    appsDomain: APPS_DOMAIN,
     talkLinkScheme: TALK_LINK_SCHEME,
     talkAndroidPackage: TALK_ANDROID_PACKAGE,
     channel: CHANNEL,
@@ -1473,6 +1485,36 @@
       }
     });
   }
+  function createHiddenIframe(id, src, cleanups) {
+    var iframe = document.createElement('iframe');
+    iframe.id = iframe.name = id;
+    iframe.src = src;
+    iframe.setAttribute('style', 'border:none; width:0; height:0; display:none; overflow:hidden;');
+    document.body.appendChild(iframe);
+    cleanups.push(function () {
+      document.body.removeChild(iframe);
+    });
+  }
+  function addMessageEvent(settings, requestDomain, cleanups) {
+    var callback = function callback(_ref) {
+      var data = _ref.data,
+          origin = _ref.origin;
+      if (data && origin === requestDomain) {
+        var resp = JSON.parse(data);
+        if (resp.code) {
+          settings.fail(resp);
+        } else {
+          settings.success(resp);
+        }
+        settings.always(resp);
+        removeEvent(window, 'message', callback);
+      }
+    };
+    addEvent(window, 'message', callback);
+    cleanups.push(function () {
+      removeEvent(window, 'message', callback);
+    });
+  }
   function openPopupAndSubmitForm(params, popupParams) {
     var url = popupParams.url,
         popupName = popupParams.popupName,
@@ -1481,6 +1523,11 @@
     if (popup.focus) {
       popup.focus();
     }
+    createAndSubmitForm(params, url, popupName);
+    return popup;
+  }
+  function createAndSubmitForm(params, url) {
+    var popupName = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : '';
     var form = document.createElement('form');
     form.setAttribute('accept-charset', 'utf-8');
     form.setAttribute('method', 'post');
@@ -1497,7 +1544,6 @@
     document.body.appendChild(form);
     form.submit();
     document.body.removeChild(form);
-    return popup;
   }
 
   var eventObserverMap = {};
@@ -1570,7 +1616,7 @@
     fail: emptyFunc,
     always: emptyFunc
   };
-  var loginDefaultSettings = assignIn({
+  var loginDefaultSettings = _objectSpread2({
     throughTalk: true,
     persistAccessToken: true,
     persistRefreshToken: false
@@ -1591,16 +1637,28 @@
     state: isString,
     deviceType: isOneOf(['watch', 'tv'])
   };
+  var shippingAddressSettings = {
+    optional: {
+      success: isFunction,
+      fail: isFunction,
+      always: isFunction,
+      close: isFunction,
+      returnUrl: isString
+    },
+    defaults: _objectSpread2(_objectSpread2({}, defaultCallbacks), {}, {
+      close: emptyFunc
+    })
+  };
   var rules$8 = {
     createLoginButton: {
       required: {
         container: passesOneOf([isElement, isString])
       },
-      optional: assignIn({
+      optional: _objectSpread2({
         lang: isOneOf(['en', 'kr']),
         size: isOneOf(['small', 'medium', 'large'])
       }, loginCommonSettings),
-      defaults: assignIn({
+      defaults: _objectSpread2({
         lang: 'kr',
         size: 'medium'
       }, loginDefaultSettings)
@@ -1622,7 +1680,7 @@
         state: isString,
         autoLogin: isBoolean,
         deviceType: isOneOf(['watch', 'tv']),
-        prompts: isOneOf(['login', 'none']),
+        prompts: isString,
         reauthenticate: isBoolean,
         throughSyncplugin: isBoolean,
         success: isFunction,
@@ -1658,7 +1716,14 @@
         always: isFunction
       },
       defaults: defaultCallbacks
-    }
+    },
+    selectShippingAddress: shippingAddressSettings,
+    createShippingAddress: shippingAddressSettings,
+    updateShippingAddress: _objectSpread2({
+      required: {
+        addressId: isInteger
+      }
+    }, shippingAddressSettings)
   };
 
   function openLoginPopup(url) {
@@ -1720,11 +1785,10 @@
   function runAuthCallback(settings, resp) {
     if (resp.error) {
       settings.fail(resp);
-      settings.always(resp);
     } else {
       settings.success(resp);
-      settings.always(resp);
     }
+    settings.always(resp);
   }
 
   function checkAuthorize(url, onResponse) {
@@ -1765,7 +1829,7 @@
   var poller$2 = new Poller(1000, 600);
   function authorize(settings) {
     settings = processRules(settings, rules$8.authorize, 'Auth.authorize');
-    if (settings.autoLogin && !/KAKAOTALK/i.test(UA.ua)) {
+    if (settings.autoLogin && !isTalkWebview) {
       handleResponse(settings, {
         error: 'auto_login',
         error_description: 'NOT_SUPPORTED_BROWSER'
@@ -1821,9 +1885,10 @@
     eventObserver.dispatch('LOGIN_START');
   }
   function isSupportEasyLogin(settings) {
-    var isNotInAppBrowser = UA.os.ios || UA.os.android ? !/KAKAOTALK/i.test(UA.ua) : false;
-    var isNotAccountLogin = !settings.reauthenticate && settings.prompts !== 'login';
-    return isNotInAppBrowser && isNotAccountLogin && settings.throughTalk && !settings.autoLogin;
+    var isInAppBrowser = UA.os.ios || UA.os.android ? isTalkWebview : false;
+    var isAccountLogin = settings.reauthenticate === true || settings.prompts && settings.prompts.indexOf('login') > -1;
+    var isAutoLogin = settings.autoLogin === true || settings.prompts && settings.prompts.indexOf('none') > -1;
+    return !isInAppBrowser && !isAccountLogin && settings.throughTalk === true && !isAutoLogin;
   }
   function onResponse(settings, httpResp) {
     if (httpResp.status === 200 && httpResp.response) {
@@ -1833,7 +1898,7 @@
           code: resp.code
         });
         return true;
-      } else if (resp.status === 'error' && (resp.error_code === '500' || resp.error_code === '600' || resp.error_code === '700')) {
+      } else if (resp.status === 'error' && resp.error_code && resp.error_code !== '300') {
         handleResponse(settings, {
           error: resp.error,
           error_description: resp.error_description
@@ -1877,7 +1942,7 @@
     return UA.os.android ? getAndroidLoginIntent() : getIosLoginUniversalLink();
   }
   function isTalkChannelHome(settings) {
-    return settings.throughSyncplugin && /KAKAOTALK/i.test(UA.ua) && /ch-home/i.test(UA.ua);
+    return settings.throughSyncplugin && isTalkWebview && /ch-home/i.test(UA.ua);
   }
   function executeSyncpluginScheme(baseAuthParams) {
     var bizpluginParams = assignIn({}, baseAuthParams, {
@@ -1907,13 +1972,13 @@
     return /Version\/\d+\.\d+/i.test(UA.ua) && (/Chrome\/\d+\.\d+\.\d+\.\d+ Mobile/i.test(UA.ua) || /; wv\)/i.test(UA.ua));
   }
   function isIOSKakaoTalkWebView() {
-    return UA.os.ios && /KAKAOTALK/i.test(UA.ua);
+    return UA.os.ios && isTalkWebview;
   }
   function isAndroidKakaoTalkWebView() {
-    return UA.os.android && /KAKAOTALK/i.test(UA.ua);
+    return UA.os.android && isTalkWebview;
   }
   function isNewerAndroidKakaoTalkWebView() {
-    return UA.os.android && /KAKAOTALK/i.test(UA.ua) && UA.browser.chrome && UA.browser.version.major >= 71;
+    return UA.os.android && isTalkWebview && UA.browser.chrome && UA.browser.version.major >= 71;
   }
 
   var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
@@ -4689,8 +4754,7 @@
       delete obj.header_image_width;
       delete obj.header_image_height;
       if (console) {
-        var params = ['header_image_url', 'header_image_width', 'header_image_height'];
-        console.warn("KakaoWarning: The parameters (".concat(params.join(', '), ") for header background image are deprecated."));
+        console.warn("KakaoWarning: The parameters (".concat(['header_image_url', 'header_image_width', 'header_image_height'].join(', '), ") for header background image are deprecated."));
       }
     }
     return true;
@@ -4710,7 +4774,7 @@
     '/v2/user/me': {
       method: 'get',
       data: {
-        optional: assignIn({
+        optional: _objectSpread2({
           property_keys: isArray
         }, secureResource)
       }
@@ -4770,10 +4834,11 @@
     '/v1/api/talk/friends': {
       method: 'get',
       data: {
-        optional: assignIn({
+        optional: _objectSpread2({
           offset: isInteger,
           limit: isInteger,
-          order: isString
+          order: isString,
+          friend_order: isString
         }, secureResource),
         after: forceSecureResource
       }
@@ -4781,7 +4846,7 @@
     '/v1/friends': {
       method: 'get',
       data: {
-        optional: assignIn({
+        optional: _objectSpread2({
           offset: isInteger,
           limit: isInteger,
           order: isString,
@@ -4989,7 +5054,7 @@
         required: {
           image_url_list: kageImageUrlListValidator
         },
-        optional: assignIn({
+        optional: _objectSpread2({
           content: storyActivityContentValidator
         }, postApiCommonParams)
       }
@@ -5000,7 +5065,7 @@
         required: {
           link_info: isObject
         },
-        optional: assignIn({
+        optional: _objectSpread2({
           content: storyActivityContentValidator
         }, postApiCommonParams)
       }
@@ -5071,7 +5136,7 @@
     }
     if (!proxyForRequest) {
       proxyForRequest = getProxy$1();
-      cleanups$6.push(function () {
+      cleanups$7.push(function () {
         proxyForRequest.destroy();
         proxyForRequest = null;
       });
@@ -5202,15 +5267,15 @@
       fileReader.readAsArrayBuffer(file);
     });
   }
-  var cleanups$6 = [];
-  function cleanup$7() {
-    emptyCleanups(cleanups$6);
+  var cleanups$7 = [];
+  function cleanup$8() {
+    emptyCleanups(cleanups$7);
   }
 
   var request$6 = /*#__PURE__*/Object.freeze({
     __proto__: null,
     request: request$5,
-    cleanup: cleanup$7
+    cleanup: cleanup$8
   });
 
   function getProxy(config, onResponse) {
@@ -5242,7 +5307,7 @@
   var POPUP_NAME = '_blank';
   var POPUP_FEATURES$1 = 'width=380, height=520, scrollbars=yes';
   var ANDROID_WV = /Version\/4.0/i.test(UA.ua) || /; wv\)/i.test(UA.ua);
-  var ANDROID_WV_ALLOWLIST = /naver\(inapp|fb_iab|daumapps|instagram|ebay/g.test(UA.ua);
+  var ANDROID_WV_ALLOWLIST = /naver\(inapp|fb_iab|daumapps|instagram|ebay/g.test(UA.ua) || (typeof daumApps === "undefined" ? "undefined" : _typeof(daumApps)) === 'object';
   function login$2(stateToken, fallbackUrl, authParams, redirectUri) {
     if (!isSupport()) {
       return;
@@ -5282,8 +5347,7 @@
   function isSupport() {
     if (UA.os.ios) {
       var iOSBrowser = /safari|FxiOS|CriOS/.test(UA.ua);
-      var isInAppBrowser = !/KAKAOTALK/i.test(UA.ua);
-      return iOSBrowser || isInAppBrowser;
+      return iOSBrowser || !isTalkWebview;
     } else if (UA.os.android) {
       return UA.browser.chrome && !/opr\//i.test(UA.ua) && UA.browser.version.major >= 30 && (
       !ANDROID_WV || ANDROID_WV && ANDROID_WV_ALLOWLIST);
@@ -5324,7 +5388,7 @@
       doLogin(settings);
     };
     addEvent(container$, 'click', clickHandler);
-    cleanups$5.push(function () {
+    cleanups$6.push(function () {
       removeEvent(container$, 'click', clickHandler);
     });
   }
@@ -5371,7 +5435,7 @@
       }
     };
     addEvent(window, 'message', messageHandler);
-    cleanups$5.push(function () {
+    cleanups$6.push(function () {
       removeEvent(window, 'message', messageHandler);
     });
   }
@@ -5420,7 +5484,7 @@
   function loginThroughTalk(settings, stateToken, talkLoginUrl) {
     if (!proxyForTalk) {
       proxyForTalk = getProxy({}, function (response) {
-        if (response.status === 'error' && (response.error_code === '500' || response.error_code === '600' || response.error_code === '700')) {
+        if (response.status === 'error' && response.error_code && response.error_code !== '300') {
           poller$1.stop();
           if (response.error_code === '700') {
             location.href = "".concat(URL.authDomain, "/error/network");
@@ -5449,7 +5513,7 @@
           handleAuthResponse(settings, response);
         }
       });
-      cleanups$5.push(function () {
+      cleanups$6.push(function () {
         proxyForTalk.destroy();
         proxyForTalk = null;
       });
@@ -5493,7 +5557,7 @@
         var savedSettings = getSavedSettingsWithResponseState(response, savedSettingsForWeb);
         handleAuthResponse(savedSettings, response);
       });
-      cleanups$5.push(function () {
+      cleanups$6.push(function () {
         proxyForWeb.destroy();
         proxyForWeb = null;
       });
@@ -5558,16 +5622,16 @@
       proxyForAccessToken = getProxy({}, function (response) {
         handleAuthResponse(settings, response);
       });
-      cleanups$5.push(function () {
+      cleanups$6.push(function () {
         proxyForAccessToken.destroy();
         proxyForAccessToken = null;
       });
     }
     proxyForAccessToken.getAccessToken(settings.code, getAppKey$1(), settings.redirectUri);
   }
-  var cleanups$5 = [];
-  function cleanup$6() {
-    emptyCleanups(cleanups$5);
+  var cleanups$6 = [];
+  function cleanup$7() {
+    emptyCleanups(cleanups$6);
   }
 
   var login$1 = /*#__PURE__*/Object.freeze({
@@ -5578,7 +5642,7 @@
     autoLogin: autoLogin,
     logout: logout,
     issueAccessToken: issueAccessToken,
-    cleanup: cleanup$6
+    cleanup: cleanup$7
   });
 
   function getStatusInfo(callback) {
@@ -5610,12 +5674,79 @@
     getStatusInfo: getStatusInfo
   });
 
-  var Auth = makeModule([oauth, login$1, secret, status]);
+  function selectShippingAddress(settings) {
+    settings = processRules(settings, rules$8.selectShippingAddress, 'Auth.selectShippingAddress');
+    requestShippingAddress(settings, '/user/address');
+  }
+  function createShippingAddress(settings) {
+    settings = processRules(settings, rules$8.createShippingAddress, 'Auth.createShippingAddress');
+    requestShippingAddress(settings, '/user/create/address');
+  }
+  function updateShippingAddress(settings) {
+    settings = processRules(settings, rules$8.updateShippingAddress, 'Auth.updateShippingAddress');
+    requestShippingAddress(settings, '/user/edit/address');
+  }
+  function requestShippingAddress(settings, subpath) {
+    cleanup$6();
+    var transId = generateTxId();
+    var params = _objectSpread2({
+      app_key: getAppKey$1(),
+      access_token: getAccessToken(),
+      ka: KAKAO_AGENT,
+      trans_id: transId
+    }, settings.addressId && {
+      address_id: settings.addressId
+    });
+    var url = URL.appsDomain + subpath;
+    if (settings.returnUrl) {
+      params.return_url = settings.returnUrl;
+      createAndSubmitForm(params, url);
+    } else {
+      createHiddenIframe(transId, "".concat(URL.appsDomain, "/proxy?trans_id=").concat(transId), cleanups$5);
+      addMessageEvent(settings, URL.appsDomain, cleanups$5);
+      addCloseEvent(settings);
+      openPopupAndSubmitForm(params, {
+        url: url,
+        popupName: 'shipping_address',
+        popupFeatures: "location=no,resizable=no,status=no,scrollbars=no,width=460,height=608"
+      });
+    }
+  }
+  function addCloseEvent(settings) {
+    var callback = function callback(_ref) {
+      var data = _ref.data,
+          origin = _ref.origin;
+      if ((origin === URL.appsDomain || origin === URL.accountDomain) && data === 'closed') {
+        settings.close();
+        removeEvent(window, 'message', callback);
+      }
+    };
+    addEvent(window, 'message', callback);
+  }
+  var cleanups$5 = [];
+  function cleanup$6() {
+    emptyCleanups(cleanups$5);
+  }
+
+  var shippingAddress = /*#__PURE__*/Object.freeze({
+    __proto__: null,
+    selectShippingAddress: selectShippingAddress,
+    createShippingAddress: createShippingAddress,
+    updateShippingAddress: updateShippingAddress,
+    cleanup: cleanup$6
+  });
+
+  var Auth = makeModule([oauth, login$1, secret, status, shippingAddress]);
 
   var API = makeModule([request$6]);
 
   function capitalize(str) {
     return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+  function camelToSnakeCase(str) {
+    return str.replace(/[A-Z]/g, function (letter) {
+      return "_".concat(letter.toLowerCase());
+    });
   }
   function stringifyLCBA(lcba) {
     return isObject(lcba) ? JSON.stringify(lcba) : lcba;
@@ -5631,6 +5762,12 @@
     processRules(settings, rule, "parameter \"".concat(propName, "\" in Link"));
     return true;
   }
+  function formatter(settings) {
+    return keys(settings).reduce(function (obj, k) {
+      obj[camelToSnakeCase(k)] = settings[k];
+      return obj;
+    }, {});
+  }
   var linkRule = {
     optional: {
       webUrl: isString,
@@ -5642,13 +5779,23 @@
     },
     builder: makeLink
   };
+  var itemRule = {
+    required: {
+      item: isString,
+      itemOp: isString
+    }
+  };
   function makeLink(settings) {
-    return {
-      web_url: settings.webUrl,
-      mobile_web_url: settings.mobileWebUrl,
-      android_execution_params: settings.androidExecutionParams || settings.androidExecParams,
-      ios_execution_params: settings.iosExecutionParams || settings.iosExecParams
-    };
+    var link = formatter(settings);
+    if (link.android_exec_params) {
+      link.android_execution_params = link.android_exec_params;
+      delete link.android_exec_params;
+    }
+    if (link.ios_exec_params) {
+      link.ios_execution_params = link.ios_exec_params;
+      delete link.ios_exec_params;
+    }
+    return link;
   }
   function makeButton(settings) {
     return {
@@ -5657,32 +5804,18 @@
     };
   }
   function makeContent(settings) {
-    return {
-      title: settings.title,
-      image_url: settings.imageUrl,
-      link: makeLink(settings.link),
-      image_width: settings.imageWidth,
-      image_height: settings.imageHeight,
-      description: settings.description
-    };
+    var content = formatter(settings);
+    content.link = makeLink(content.link);
+    return content;
   }
-  function makeCommerce(settings) {
-    return {
-      regular_price: settings.regularPrice,
-      discount_price: settings.discountPrice,
-      discount_rate: settings.discountRate,
-      fixed_discount_price: settings.fixedDiscountPrice,
-      product_name: settings.productName
-    };
-  }
-  function makeSocial(settings) {
-    return {
-      like_count: settings.likeCount,
-      comment_count: settings.commentCount,
-      shared_count: settings.sharedCount,
-      view_count: settings.viewCount,
-      subscriber_count: settings.subscriberCount
-    };
+  function makeItemContent(settings) {
+    var itemContent = formatter(settings);
+    if (itemContent.items) {
+      itemContent.items = map(itemContent.items, function (e) {
+        return formatter(e);
+      });
+    }
+    return itemContent;
   }
   var rules$6 = {
     headerLink: linkRule,
@@ -5748,9 +5881,11 @@
         discountPrice: isInteger,
         discountRate: isInteger,
         fixedDiscountPrice: isInteger,
+        currencyUnit: isString,
+        currencyUnitPosition: isOneOf([0, 1]),
         productName: isString
       },
-      builder: makeCommerce
+      builder: formatter
     },
     social: {
       optional: {
@@ -5760,7 +5895,24 @@
         viewCount: isInteger,
         subscriberCount: isInteger
       },
-      builder: makeSocial
+      builder: formatter
+    },
+    itemContent: {
+      optional: {
+        profileText: isString,
+        profileImageUrl: isString,
+        titleImageUrl: isString,
+        titleImageText: isString,
+        titleImageCategory: isString,
+        items: function items(arr) {
+          return isArray(arr) && arr.length < 6 && every(arr, function (e) {
+            return partialValidator(e, itemRule, 'items.item');
+          });
+        },
+        sum: isString,
+        sumOp: isString
+      },
+      builder: makeItemContent
     }
   };
   function create(settings, key, callerMsg) {
@@ -5774,17 +5926,17 @@
     create: create
   };
 
+  var LINK_VER = '4.0';
   var KakaoLink = function KakaoLink(settings, validatedResp) {
     _classCallCheck(this, KakaoLink);
     this.appkey = getAppKey$1();
     this.appver = '1.0';
-    this.linkver = '4.0';
-    this.extras = assignIn({
+    this.linkver = LINK_VER;
+    this.extras = _objectSpread2(_objectSpread2({
       KA: KAKAO_AGENT
-    }, settings.extras);
-    if (settings.serverCallbackArgs) {
-      this.extras.lcba = stringifyLCBA(settings.serverCallbackArgs);
-    }
+    }, settings.extras), settings.serverCallbackArgs && {
+      lcba: stringifyLCBA(settings.serverCallbackArgs)
+    });
     this.template_json = validatedResp.template_msg;
     this.template_args = validatedResp.template_args;
     this.template_id = validatedResp.template_id;
@@ -5800,42 +5952,35 @@
   var DefaultLink = function DefaultLink(settings) {
     var _this = this;
     _classCallCheck(this, DefaultLink);
-    this.link_ver = '4.0';
-    this.template_object = {
-      object_type: settings.objectType,
-      button_title: settings.buttonTitle || ''
-    };
+    this.link_ver = LINK_VER;
+    this.template_object = _objectSpread2({
+      object_type: settings.objectType
+    }, settings.buttonTitle && {
+      button_title: settings.buttonTitle
+    });
     forEach(settings, function (setting, key) {
       var prop = propGenerator.create(setting, key, 'defaultObject');
       if (prop) {
-        _this.template_object[key] = prop;
+        _this.template_object[camelToSnakeCase(key)] = prop;
       }
     });
   };
-  var defaultLinks = {
-    FeedLink: DefaultLink,
-    CommerceLink: DefaultLink
-  };
-  defaultLinks['ListLink'] = function (_DefaultLink) {
+  var ListLink = function (_DefaultLink) {
     _inherits(ListLink, _DefaultLink);
     var _super = _createSuper(ListLink);
     function ListLink(settings) {
       var _this2;
       _classCallCheck(this, ListLink);
       _this2 = _super.call(this, settings);
-      var tpl = _this2.template_object;
-      tpl.header_title = settings.headerTitle || '';
-      tpl.header_link = tpl.headerLink || {};
-      delete tpl.headerLink;
+      _this2.template_object.header_title = settings.headerTitle;
       if (console && (settings.headerImageUrl || settings.headerImageWidth || settings.headerImageHeight)) {
-        var params = ['headerImageUrl', 'headerImageWidth', 'headerImageHeight'];
-        console.warn("KakaoWarning: The parameters (".concat(params.join(', '), ") for header background image are deprecated."));
+        console.warn("KakaoWarning: The parameters (".concat(['headerImageUrl', 'headerImageWidth', 'headerImageHeight'].join(', '), ") for header background image are deprecated."));
       }
       return _this2;
     }
     return ListLink;
   }(DefaultLink);
-  defaultLinks['LocationLink'] = function (_DefaultLink2) {
+  var LocationLink = function (_DefaultLink2) {
     _inherits(LocationLink, _DefaultLink2);
     var _super2 = _createSuper(LocationLink);
     function LocationLink(settings) {
@@ -5849,7 +5994,7 @@
     }
     return LocationLink;
   }(DefaultLink);
-  defaultLinks['TextLink'] = function (_DefaultLink3) {
+  var TextLink = function (_DefaultLink3) {
     _inherits(TextLink, _DefaultLink3);
     var _super3 = _createSuper(TextLink);
     function TextLink(settings) {
@@ -5861,9 +6006,16 @@
     }
     return TextLink;
   }(DefaultLink);
+  var defaultLinks = {
+    FeedLink: DefaultLink,
+    CommerceLink: DefaultLink,
+    ListLink: ListLink,
+    LocationLink: LocationLink,
+    TextLink: TextLink
+  };
   var ScrapLink = function ScrapLink(settings) {
     _classCallCheck(this, ScrapLink);
-    this.link_ver = '4.0';
+    this.link_ver = LINK_VER;
     this.request_url = settings.requestUrl;
     if (settings.templateId) {
       this.template_id = settings.templateId;
@@ -5874,7 +6026,7 @@
   };
   var CustomLink = function CustomLink(settings) {
     _classCallCheck(this, CustomLink);
-    this.link_ver = '4.0';
+    this.link_ver = LINK_VER;
     this.template_id = settings.templateId;
     this.template_args = settings.templateArgs;
   };
@@ -6175,6 +6327,7 @@
       content: isObject
     },
     optional: assignIn({
+      itemContent: isObject,
       social: isObject,
       buttonTitle: isString,
       buttons: buttonsValidator
@@ -6380,10 +6533,10 @@
         requestUrl = _linkTypeMapper$linkT.requestUrl;
     var linkObj = makeLinkFunc(settings);
     var isIpad = UA.os.ios && UA.platform === 'tablet';
-    if (!settings.throughTalk || UA.platform !== 'mobile' && !isIpad) {
-      webSender.send(settings, linkType, linkObj);
-    } else {
+    if (isTalkWebview || settings.throughTalk && (UA.platform === 'mobile' || isIpad)) {
       talkSender.send(settings, requestUrl, linkObj);
+    } else {
+      webSender.send(settings, linkType, linkObj);
     }
   }
   var cleanups$4 = [];
@@ -7180,142 +7333,240 @@
 
   var Navi = makeModule([request$1]);
 
-  var pickerFriendFilters = ['none', 'invitable', 'registered'];
-  var pickerFriendTypes = ['talk', 'story', 'talkstory'];
-  var pickerFriendOrders = ['age'];
-  var osFilters = ['all', 'ios', 'android'];
-  var pickerProperties = {
-    optional: {
-      title: isString,
-      enableSearch: isBoolean,
-      searchPlaceHolderText: isString,
-      countryCodes: isArray,
-      usingOsFilter: isOneOf(osFilters),
-      showMyProfile: isBoolean,
-      showFavorite: isBoolean,
-      disableSelectReasons: isArray,
-      displayAllProfile: isBoolean
-    },
-    after: function after(settings) {
-      if (settings.countryCodes) {
-        settings.countryCodes = settings.countryCodes.join(',');
+  function pickableCountValidator(n) {
+    return isInteger(n) && n > 0 && n < 101;
+  }
+  function checkPickableCounts(settings) {
+    if (settings.maxPickableCount < settings.minPickableCount) {
+      throw new KakaoError('"minPickableCount" should not larger than "maxPickableCount"');
+    }
+  }
+  function disableSelectOptionsValidator(arr) {
+    var disableSelectOptionRule = {
+      required: {
+        reason: isOneOf(['msgBlocked', 'registered', 'unregistered', 'notFriend', 'custom'])
+      },
+      optional: {
+        message: isString,
+        uuids: isArray
+      },
+      after: function after(settings) {
+        if (settings.reason === 'custom' && (!settings.message || !settings.uuids)) {
+          throw new KakaoError('"message" and "uuids" must be set for "custom" option in disableSelectOption');
+        }
       }
-      if (settings.disableSelectReasons) {
-        settings.disableSelectReasons = settings.disableSelectReasons.join(',');
+    };
+    return isArray(arr) && every(arr, function (e) {
+      return isObject(e) && !!processRules(e, disableSelectOptionRule, 'disableSelectOption');
+    });
+  }
+  function checkPickerChatFilters(settings) {
+    if (settings.selectionType === 'chatMember') {
+      var f = settings.chatFilters;
+      if (f.indexOf('open') > -1) {
+        throw new KakaoError('"open" is not allowed in "chatFilters"');
+      }
+      if ((f.indexOf('direct') > -1 || f.indexOf('multi') > -1) && f.indexOf('regular') === -1) {
+        throw new KakaoError('"regular" should be included in "chatFilters"');
       }
     }
-  };
-  var multiPickerProperties = {
-    optional: assignIn({
-      showPickedFriend: isBoolean,
-      maxPickableCount: isInteger,
-      minPickableCount: isInteger
-    }, pickerProperties.optional),
-    after: pickerProperties.after
-  };
-  var pickerOptionalSettings = {
+  }
+  var friendFilters = ['none', 'invitable', 'registered'];
+  var serviceTypeFilters = ['talk', 'story', 'talkstory'];
+  var friendOrders = ['age'];
+  var selectionTypes = ['chat', 'chatMember'];
+  var _chatFilters = ['regular', 'direct', 'multi', 'open'];
+  var osFilters = ['all', 'ios', 'android'];
+  var friendPickerOptional = {
+    returnUrl: isString,
     success: isFunction,
     fail: isFunction,
     always: isFunction,
-    pickerFriendFilter: isOneOf(pickerFriendFilters),
-    pickerFriendType: isOneOf(pickerFriendTypes),
-    pickerFriendOrder: isOneOf(pickerFriendOrders)
+    friendFilter: isOneOf(friendFilters),
+    serviceTypeFilter: isOneOf(serviceTypeFilters),
+    friendOrder: isOneOf(friendOrders),
+    title: isString,
+    enableSearch: isBoolean,
+    countryCodeFilters: isArray,
+    usingOsFilter: isOneOf(osFilters),
+    showMyProfile: isBoolean,
+    showFavorite: isBoolean,
+    disableSelectOptions: disableSelectOptionsValidator,
+    displayAllProfile: isBoolean
   };
-  var pickerDefaultSettings = {
+  var friendPickerDefault = {
     success: emptyFunc,
     fail: emptyFunc,
     always: emptyFunc,
-    pickerFriendFilter: pickerFriendFilters[0],
-    pickerFriendType: pickerFriendTypes[0]
+    friendFilter: friendFilters[0],
+    serviceTypeFilter: serviceTypeFilters[0]
+  };
+  var friendsParamsRule = {
+    optional: {
+      friendFilter: isOneOf(friendFilters),
+      serviceTypeFilter: isOneOf(serviceTypeFilters),
+      friendOrder: isOneOf(friendOrders),
+      countryCodeFilters: isArray,
+      usingOsFilter: isOneOf(osFilters),
+      showMyProfile: isBoolean,
+      showFavorite: isBoolean,
+      showPickedFriend: isBoolean
+    },
+    defaults: {
+      friendFilter: friendFilters[0],
+      serviceTypeFilter: serviceTypeFilters[0]
+    }
+  };
+  var chatParamsRule = {
+    optional: {
+      selectionType: isOneOf(selectionTypes),
+      chatFilters: function chatFilters(arr) {
+        return isArray(arr) && every(arr, function (e) {
+          return isOneOf(_chatFilters)(e);
+        });
+      }
+    },
+    defaults: {
+      selectionType: selectionTypes[0],
+      chatFilters: [_chatFilters[0]]
+    },
+    after: checkPickerChatFilters
   };
   var rules = {
-    selectMultiple: {
-      optional: assignIn({
-        properties: function properties(obj) {
-          return isObject(obj) && !!processRules(obj, multiPickerProperties, 'FriendPicker.selectMultiple');
-        }
-      }, pickerOptionalSettings),
-      defaults: pickerDefaultSettings
+    selectFriend: {
+      optional: friendPickerOptional,
+      defaults: friendPickerDefault
     },
-    selectSingle: {
-      optional: assignIn({
-        properties: function properties(obj) {
-          return isObject(obj) && !!processRules(obj, pickerProperties, 'FriendPicker.selectSingle');
+    selectFriends: {
+      optional: _objectSpread2(_objectSpread2({}, friendPickerOptional), {}, {
+        showPickedFriend: isBoolean,
+        maxPickableCount: pickableCountValidator,
+        minPickableCount: pickableCountValidator
+      }),
+      defaults: friendPickerDefault,
+      after: checkPickableCounts
+    },
+    selectChat: {
+      optional: {
+        returnUrl: isString,
+        success: isFunction,
+        fail: isFunction,
+        always: isFunction,
+        selectionType: isOneOf(selectionTypes),
+        chatFilters: function chatFilters(arr) {
+          return isArray(arr) && every(arr, function (e) {
+            return isOneOf(_chatFilters)(e);
+          });
+        },
+        title: isString,
+        enableSearch: isBoolean,
+        disableSelectOptions: disableSelectOptionsValidator,
+        displayAllProfile: isBoolean,
+        maxPickableCount: pickableCountValidator,
+        minPickableCount: pickableCountValidator
+      },
+      defaults: {
+        success: emptyFunc,
+        fail: emptyFunc,
+        always: emptyFunc,
+        selectionType: selectionTypes[0],
+        chatFilters: [_chatFilters[0]]
+      },
+      after: function after(settings) {
+        checkPickableCounts(settings);
+        checkPickerChatFilters(settings);
+      }
+    },
+    select: {
+      optional: {
+        returnUrl: isString,
+        success: isFunction,
+        fail: isFunction,
+        always: isFunction,
+        title: isString,
+        enableSearch: isBoolean,
+        disableSelectOptions: disableSelectOptionsValidator,
+        displayAllProfile: isBoolean,
+        maxPickableCount: pickableCountValidator,
+        minPickableCount: pickableCountValidator,
+        friendsParams: function friendsParams(obj) {
+          return isObject(obj) && !!processRules(obj, friendsParamsRule, 'Picker.select');
+        },
+        chatParams: function chatParams(obj) {
+          return isObject(obj) && !!processRules(obj, chatParamsRule, 'Picker.select');
         }
-      }, pickerOptionalSettings),
-      defaults: pickerDefaultSettings
+      },
+      defaults: {
+        success: emptyFunc,
+        fail: emptyFunc,
+        always: emptyFunc
+      },
+      after: checkPickableCounts
     }
   };
 
-  function selectMultiple(settings) {
-    var multiplePickerSettings = processRules(settings, rules.selectMultiple, 'FriendPicker.selectMultiple');
-    openPickerPopup(multiplePickerSettings, 'multiple');
+  function selectFriends(settings) {
+    settings = processRules(settings, rules.selectFriends, 'Picker.selectFriends');
+    requestPicker(settings, pruneNeedlessParams(settings), '/select/multiple');
   }
-  function selectSingle(settings) {
-    var pickerSettings = processRules(settings, rules.selectSingle, 'FriendPicker.selectSingle');
-    openPickerPopup(pickerSettings, 'single');
+  function selectFriend(settings) {
+    settings = processRules(settings, rules.selectFriend, 'Picker.selectFriend');
+    requestPicker(settings, pruneNeedlessParams(settings), '/select/single');
   }
-  function openPickerPopup(settings, selectType) {
+  function selectChat(settings) {
+    settings = processRules(settings, rules.selectChat, 'Picker.selectChat');
+    requestPicker(settings, pruneNeedlessParams(settings), '/chat/select');
+  }
+  function select(settings) {
+    settings = processRules(settings, rules.select, 'Picker.select');
+    var params = _objectSpread2(_objectSpread2(_objectSpread2({}, pruneNeedlessParams(settings)), settings.friendsParams), settings.chatParams);
+    requestPicker(settings, params, '/tab/select');
+  }
+  function requestPicker(settings, params, subpath) {
     cleanup$1();
-    var token = getAccessToken();
-    if (!token) {
-      handlePickerCallback(settings, {
-        code: -401,
-        msg: 'InvalidTokenException'
-      });
-      return;
-    }
     var transId = generateTxId();
-    createHiddenIframe(transId);
-    addPickerMessageEvent(settings);
-    var pickerParams = _objectSpread2({
+    var pickerParams = _objectSpread2(_objectSpread2({
       transId: transId,
-      token: token,
       appKey: getAppKey$1(),
-      ka: KAKAO_AGENT,
-      pickerFriendFilter: settings.pickerFriendFilter,
-      pickerFriendType: settings.pickerFriendType
-    }, settings.properties);
-    if (settings.pickerFriendOrder) {
-      pickerParams.pickerFriendOrder = settings.pickerFriendOrder;
-    }
-    openPopupAndSubmitForm(pickerParams, {
-      url: "".concat(URL.pickerDomain, "/select/").concat(selectType),
-      popupName: 'friend_picker',
-      popupFeatures: 'location=no,resizable=no,status=no,scrollbars=no,width=460,height=608'
-    });
-  }
-  function createHiddenIframe(transId) {
-    var iframe = document.createElement('iframe');
-    iframe.id = iframe.name = transId;
-    iframe.src = "".concat(URL.pickerDomain, "/proxy?transId=").concat(transId);
-    iframe.setAttribute('style', 'border:none; width:0; height:0; display:none; overflow:hidden;');
-    document.body.appendChild(iframe);
-    cleanups.push(function () {
-      document.body.removeChild(iframe);
-    });
-  }
-  function addPickerMessageEvent(settings) {
-    var pickerCallback = function pickerCallback(_ref) {
-      var data = _ref.data,
-          origin = _ref.origin;
-      if (data && origin === URL.pickerDomain) {
-        var resp = JSON.parse(data);
-        handlePickerCallback(settings, resp);
-      }
-    };
-    addEvent(window, 'message', pickerCallback);
-    cleanups.push(function () {
-      removeEvent(window, 'message', pickerCallback);
-    });
-  }
-  function handlePickerCallback(settings, resp) {
-    if (resp.code) {
-      settings.fail(resp);
+      ka: KAKAO_AGENT
+    }, getAccessToken() && {
+      token: getAccessToken()
+    }), formatParams(params));
+    var url = URL.pickerDomain + subpath;
+    if (settings.returnUrl) {
+      pickerParams.returnUrl = settings.returnUrl;
+      createAndSubmitForm(pickerParams, url);
     } else {
-      settings.success(resp);
+      createHiddenIframe(transId, "".concat(URL.pickerDomain, "/proxy?transId=").concat(transId), cleanups);
+      addMessageEvent(settings, URL.pickerDomain, cleanups);
+      openPopupAndSubmitForm(pickerParams, {
+        url: url,
+        popupName: 'friend_picker',
+        popupFeatures: "location=no,resizable=no,status=no,scrollbars=no,width=460,height=608"
+      });
     }
-    settings.always(resp);
+  }
+  function pruneNeedlessParams(settings) {
+    var cloned = _objectSpread2({}, settings);
+    var keysNeedPrune = ['returnUrl', 'success', 'fail', 'always', 'friendsParams', 'chatParams'];
+    keysNeedPrune.forEach(function (key) {
+      if (cloned[key]) {
+        delete cloned[key];
+      }
+    });
+    return cloned;
+  }
+  function formatParams(params) {
+    var keysNeedConvertToCSV = ['countryCodeFilters', 'chatFilters'];
+    keysNeedConvertToCSV.forEach(function (key) {
+      if (params[key] !== undefined) {
+        params[key] = params[key].join(',');
+      }
+    });
+    if (params.disableSelectOptions) {
+      params.disableSelectOptions = JSON.stringify(params.disableSelectOptions);
+    }
+    return params;
   }
   var cleanups = [];
   function cleanup$1() {
@@ -7324,12 +7575,14 @@
 
   var request = /*#__PURE__*/Object.freeze({
     __proto__: null,
-    selectMultiple: selectMultiple,
-    selectSingle: selectSingle,
+    selectFriends: selectFriends,
+    selectFriend: selectFriend,
+    selectChat: selectChat,
+    select: select,
     cleanup: cleanup$1
   });
 
-  var FriendPicker = makeModule([request]);
+  var Picker = makeModule([request]);
 
   if (typeof define === 'function' && define.amd) {
     window.Kakao = exports;
@@ -7358,7 +7611,7 @@
       this.PlusFriend = PlusFriend;
       this.Story = Story;
       this.Navi = Navi;
-      this.FriendPicker = FriendPicker;
+      this.Picker = Picker;
     }
   }
   function isInitialized() {
@@ -7366,7 +7619,7 @@
   }
   function cleanup() {
     var _this = this;
-    forEach(['Auth', 'API', 'Link', 'Channel', 'PlusFriend', 'Story', 'Navi', 'FriendPicker'], function (e) {
+    forEach(['Auth', 'API', 'Link', 'Channel', 'PlusFriend', 'Story', 'Navi', 'Picker'], function (e) {
       return _this[e] && _this[e].cleanup();
     });
     setAppKey(null);
